@@ -39,29 +39,29 @@ graph LR
  %% ノード定義
  User["User (Browser)"]
  App["PHP App<br>(Controller)"]
- Cache["Cached Data<br>(JSON, Array)"]
+ Cache["Cache Objects<br>(UserID-Keyed JSON/Array)"]
  
- subgraph Storage ["Database System"]
+ subgraph Storage ["Data Management"]
  direction TB
- DB[("(MySQL)")]
- Cron["Cron Batch"]
+ DB[("(Master DB)")]
+ Cron["Nightly Batch (Cron)"]
  end
 
- %% 1. 読み込み (Read)
- User == "1. Access" ==> App
- App == "2. Read File" ==> Cache
- Cache == "Fast Return" ==> App
- App == "3. Response" ==> User
+ %% 1. 読み込み (Read) - DBを完全に回避
+ User == "1. Access with UserID" ==> App
+ App == "2. Key-Value Lookup" ==> Cache
+ Cache == "3. Object Return" ==> App
+ App == "4. Response" ==> User
 
- %% 2. 書き込み (Write) - ここを修正
- User -- "Post/Delete" --> App
+ %% 2. 書き込み (Write) - DB更新とキャッシュへの即時反映
+ User -- "Post/Update" --> App
  App -- "Update Master" --> DB
- App -.-> |"Immediate Update"| Cache
+ App -.-> |"Incremental Update"| Cache
 
- %% 3. バッチ (Batch)
- Cron -- "Heavy Query" --> DB
- DB -- "Result" --> Cron
- Cron -- "Bulk Update" --> Cache
+ %% 3. バッチ更新 (Batch) - 重い集計の肩代わり
+ Cron -- "Heavy Aggregate Query" --> DB
+ DB -- "Summarized Data" --> Cron
+ Cron -- "Rebuild Bulk Cache" --> Cache
 
  style Cache fill:#f9f,stroke:#333,stroke-width:4px
  style DB fill:#ff9,stroke:#333,stroke-width:2px
