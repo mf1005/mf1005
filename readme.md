@@ -337,6 +337,53 @@ The Amoeba（京セラのアメーバ経営をさせるERPパッケージ）, Ja
 将来的なSaaS連携の増加を見越し、個別仕様の差分を吸収する **抽象化されたETL基盤（共通部品）** を構築しました。開発者が「連携先固有のロジック」のみに集中できるインターフェースを整備した結果、私がプロジェクトを離れた後も、人事システム（HUE, Company）や就業管理（Salesforce）、ServiceNow、Workato等の連携機能が、他メンバーの手によって自律的に追加され続けています。
 現在も、新機能追加の際はアドバイザーとして仕様読解や設計レビューに参画し、ペアプロを通じた技術伝承を継続しています。これこそが、私が理想とする「技術による舗装（後続の道を作ること）」の具現化です。
 
+**ジョルダンAPI連携構成図**: 
+```mermaid
+flowchart LR
+    subgraph Input ["1. Raw Data"]
+        RawDB[("ERP RDB<br/>(ICカードバイナリ)")]
+    end
+
+    subgraph Engine ["2. ETL Engine"]
+        direction TB
+        
+        subgraph Logic ["データ加工"]
+            direction LR
+            Decoder["<b>Binary Decoder</b><br/>サイバネコード解析"]
+            API["<b>SaaS Client</b><br/>ジョルダンAPI連携"]
+            Calc["<b>Fare Logic</b><br/>運賃計算・マッピング"]
+            
+            Decoder --> API --> Calc
+        end
+        
+        Base["BaseTasklet (共通基盤)"]
+        Base -.-> Logic
+    end
+
+    subgraph Storage ["3. Processed Data"]
+        MasterDB[("ERP RDB<br/>(精算用レコード)")]
+    end
+
+    subgraph Consumer ["4. Business UI"]
+        UI["旅費精算システム<br/>(ユーザーが起票)"]
+    end
+
+    %% 全体の流れ
+    RawDB --> Logic
+    Logic --> MasterDB
+    MasterDB --> UI
+
+    %% スタイル定義
+    style Engine fill:#f5f5f5,stroke:#333
+    style Logic fill:#ffffff,stroke:#01579b,stroke-width:2px
+    style Decoder fill:#e1f5fe,stroke:#01579b
+    style UI fill:#fff2cc,stroke:#d6b656
+```
+
+**自律的な機能拡張を可能にしたETLエコシステム構成図**: 
+<img width="1676" height="439" alt="image" src="https://github.com/user-attachments/assets/042a3fdc-08e5-4c1c-8f3f-e30151860dec" />
+このETL基盤は、スケジューリング実行だけでなく、基幹システムからのファイル出力を検知して動くイベント駆動型運用にも対応しています。起動のきっかけ（Trigger）が何であれ、BaseTaskletを継承した実装クラスを一つ作るだけで、バイナリ解析からSaaS連携までを安全に完遂できる『組織の標準機』として定着させました。
+
 </details>
 
 ---
