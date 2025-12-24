@@ -113,3 +113,347 @@ sequenceDiagram
 フラグ管理: バッチ開始時にフラグを立て、**現在、キャッシュ生成中である**ことをシステム全体に通知。  
 楽観的更新: フラグが立っている間のユーザー投稿は、DBへの保存とは別に、古いキャッシュファイルに対しても暫定的な追記（Diff Merge）を行い、表示上の即時反映を維持。  
 事後マージ (追っかけ更新): Cronは「ベースとなるキャッシュ」を作り終えた後、「バッチ開始時刻 〜 現在」の間に更新されたレコードを再度DBから取得（Diff）。最後にこれをベースキャッシュにマージすることで、データ欠損を防止。  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+```mermaid
+flowchart LR
+    %% 開発・デプロイのフロー
+    subgraph Local ["1. Local & Source"]
+        Dev["Engineer / Tester"]
+        GH["GitHub Repository"]
+    end
+
+    subgraph CICD ["2. CI/CD Pipeline"]
+        CB["Cloud Build"]
+        AR["Artifact Registry"]
+    end
+
+    subgraph Runtime ["3. Stub Platform (GCP)"]
+        direction LR
+        CA["Cloud Armor<br/>(IP Whitelist)"]
+        CR["Cloud Run<br/>(Python/Flask)"]
+        
+        subgraph AppLogic ["Stub API Endpoints"]
+            direction TB
+            E500["/api/snowflake/error (500)"]
+            E200["/api/snowflake/success (200)"]
+            E403["/api/snowflake/forbidden (403)"]
+
+            %% 垂直に並べるためのダミー接続（不可視）
+            E500 ~~~ E200
+            E200 ~~~ E403
+        end
+    end
+
+    %% 正しい用語への修正
+    Dev -- "Push" --> GH
+    GH -- "Trigger" --> CB
+    CB -- "Build & Push" --> AR
+    AR -- "Deploy" --> CR
+
+    %% 利用フロー
+    Dev -.-> |"HTTPS"| CA
+    CA -.-> |"Allow"| CR
+
+    %% 各エンドポイントへのマッピング
+    CR --- E500
+    CR --- E200
+    CR --- E403
+
+    %% スタイル定義
+    style Runtime fill:#f9f9f9,stroke:#333
+    style CA fill:#fff2cc,stroke:#d6b656
+    style AppLogic fill:#ffffff,stroke:#999,stroke-dasharray: 5 5
+```
+
+
+
+
+```mermaid
+flowchart LR
+    subgraph Input ["1. Raw Data"]
+        RawDB[("ERP RDB<br/>(ICカードバイナリ)")]
+    end
+
+    subgraph Engine ["2. ETL Engine"]
+        direction TB
+        
+        subgraph Logic ["データ加工"]
+            direction LR
+            Decoder["<b>Binary Decoder</b><br/>サイバネコード解析"]
+            API["<b>SaaS Client</b><br/>ジョルダンAPI連携"]
+            Calc["<b>Fare Logic</b><br/>運賃計算・マッピング"]
+            
+            Decoder --> API --> Calc
+        end
+        
+        Base["BaseTasklet (共通基盤)"]
+        Base -.-> Logic
+    end
+
+    subgraph Storage ["3. Processed Data"]
+        MasterDB[("ERP RDB<br/>(精算用レコード)")]
+    end
+
+    subgraph Consumer ["4. Business UI"]
+        UI["旅費精算システム<br/>(ユーザーが起票)"]
+    end
+
+    %% 全体の流れ
+    RawDB --> Logic
+    Logic --> MasterDB
+    MasterDB --> UI
+
+    %% スタイル定義
+    style Engine fill:#f5f5f5,stroke:#333
+    style Logic fill:#ffffff,stroke:#01579b,stroke-width:2px
+    style Decoder fill:#e1f5fe,stroke:#01579b
+    style UI fill:#fff2cc,stroke:#d6b656
+```
+
+
+
+
+
+```mermaid
+flowchart LR
+    subgraph Trigger ["1. Trigger"]
+        direction TB
+        CSV[("基幹システム出力<br/>(CSVファイル)")]
+        Watch["監視ジョブ<br/>(JAR起動)"]
+        CSV -- "検知" --> Watch
+    end
+
+    subgraph Foundation ["2. ETL連携基盤"]
+        direction TB
+        Base["<b>BaseTasklet (共通基底クラス)</b><br/>エラー処理・ログ・初期化を自動化"]
+        
+        subgraph Modules ["再利用可能モジュール群"]
+            direction LR
+            M1["REST API"]
+            M2["FTP"]
+            M3["DB Access"]
+            M4["File Logic"]
+        end
+        Base -.-> Modules
+    end
+
+    subgraph Evolution ["3. システムの進化"]
+        direction TB
+        
+        subgraph Initial ["初期実装部モジュール"]
+            App1["旅費精算連携<br/>(Jordan API)"]
+        end
+
+        subgraph PostDeparture ["<b>離脱後にチームが追加</b>"]
+            App2["人事連携 (HUE/Company)"]
+            App3["ITSM連携 (ServiceNow)"]
+            App4["CRM連携 (Salesforce)"]
+        end
+        
+        %% 継承関係
+        Initial -- 継承 --- Base
+        PostDeparture -- 継承 --- Base
+    end
+
+    subgraph Output ["4. 連携先"]
+        SaaS["各社SaaS / クラウド"]
+    end
+
+    Watch --> Initial
+    Watch --> PostDeparture
+    Initial --> Modules
+    PostDeparture --> Modules
+    Modules --> SaaS
+
+    style Foundation fill:#e1f5fe,stroke:#01579b,stroke-width:2px
+    style Base fill:#b3e5fc,stroke:#01579b
+    style Initial fill:#e1f5fe,stroke:#01579b
+    
+    style PostDeparture fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,stroke-dasharray: 5 5
+    style App2 fill:#ffffff,stroke:#2e7d32
+    style App3 fill:#ffffff,stroke:#2e7d32
+    style App4 fill:#ffffff,stroke:#2e7d32
+```
+
+
+
+
+
+```mermaid
+flowchart LR
+  subgraph Triggers ["1. Hybrid Triggers"]
+    direction TB
+    T1["<b>定期実行 (Scheduling)</b><br/>JP1 / Task Scheduler"]
+    T2["<b>イベント駆動 (File Trigger)</b><br/>基幹システム出力(CSV/TAB)を検知"]
+  end
+
+  subgraph Foundation ["ETL連携基盤"]
+    direction TB
+    Base["<b>BaseTasklet (共通基底クラス)</b><br/>エラー処理・ログ・初期化を自動化"]
+     
+    subgraph Modules ["再利用可能モジュール群"]
+      direction LR
+      M1["REST API"]
+      M2["Binary Decoder"]
+      M3["DB Access"]
+      M4["File Processor"]
+    end
+    Base -.-> Modules
+  end
+
+  subgraph Evolution ["3. システムの進化"]
+    direction TB
+     
+    subgraph Initial ["初期実装モジュール"]
+      App1["旅費精算連携<br/>(Jordan API)"]
+    end
+
+    subgraph PostDeparture ["<b>離脱後にチームが追加</b>"]
+      App2["人事連携 (HUE/Company)"]
+      App3["ITSM連携 (ServiceNow)"]
+      App4["CRM連携 (Salesforce)"]
+    end
+     
+    Initial -- 継承 --- Base
+    PostDeparture -- 継承 --- Base
+  end
+
+  subgraph Output ["4. 連携先"]
+    direction TB
+    SaaS["各社SaaS / クラウド"]
+    DB[("社内RDB / ERP DB")]
+    FILE[("各種ファイル出力<br/>(CSV/TAB等)")]
+  end
+
+  %% 全体の流れ
+  T1 -- "JAR起動" --> Evolution
+  T2 -- "JAR起動" --> Evolution
+  Initial --> Modules
+  PostDeparture --> Modules
+  
+  %% アウトプットの多様性を反映
+  Modules --> SaaS
+  Modules --> DB
+  Modules --> FILE
+
+  %% スタイル定義
+  style Foundation fill:#e1f5fe,stroke:#01579b,stroke-width:2px
+  style Base fill:#b3e5fc,stroke:#01579b
+  style Initial fill:#e1f5fe,stroke:#01579b
+   
+  style PostDeparture fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,stroke-dasharray: 5 5
+  style App2 fill:#ffffff,stroke:#2e7d32
+  style App3 fill:#ffffff,stroke:#2e7d32
+  style App4 fill:#ffffff,stroke:#2e7d32
+   
+  style Triggers fill:#fff2cc,stroke:#d6b656
+```
+
+
+
+
+
+```mermaid
+flowchart LR
+    subgraph UserSide ["1. 社員側 (UX)"]
+        direction TB
+        Home["<b>Slack App Home</b><br/>投稿ボタン"]
+        Dialog["入力ダイアログ<br/>(件名/本文)"]
+        UserThread["メッセージタブ<br/>(個人スレッド)"]
+        DoneBtn["<b>完了ボタン</b>"]
+    end
+
+    subgraph Core ["2. AnonConnect Core (Cloud Run / Slack Bolt)"]
+        direction TB
+        Logic["<b>スレッド仲介ロジック</b><br/>双方向プロキシ実行"]
+        DB[(<b>RDB</b><br/>Thread/Channel ID管理)]
+        
+        Logic <--> DB
+    end
+
+    subgraph AdminSide ["3. 役員側 & 状態管理"]
+        direction TB
+        ExecChannel["<b>役員専用チャンネル</b><br/>(プライベート)"]
+        Canvas["<b>Slack Canvas</b><br/>(案件一覧/ステータス管理)"]
+    end
+
+    subgraph Evolution ["4. 自律的進化 (保守チーム拡張)"]
+        SNOW["<b>ServiceNow連携</b><br/>(精算・全社公開ワークフロー)"]
+    end
+
+    %% メッセージフロー
+    Home --> Dialog
+    Dialog -- "API" --> Logic
+    
+    %% 双方向プロキシの表現
+    Logic -- "新規投稿" --> ExecChannel
+    Logic -- "控え/対話用スレッド" --> UserThread
+    
+    UserThread <--> Logic
+    Logic <--> ExecChannel
+
+    %% 状態管理
+    Logic -- "ステータス同期" --> Canvas
+    DoneBtn -- "完了検知" --> Logic
+    
+    %% 進化部分
+    Logic -.-> SNOW
+
+    %% スタイル定義
+    style Core fill:#e1f5fe,stroke:#01579b,stroke-width:2px
+    style Logic fill:#b3e5fc,stroke:#01579b
+    style DB fill:#ffffff,stroke:#01579b
+    style AdminSide fill:#f5f5f5,stroke:#333
+    style Evolution fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,stroke-dasharray: 5 5
+    style SNOW fill:#ffffff,stroke:#2e7d32
+```
+
+
+
+```mermaid
+flowchart LR
+    subgraph UserSide ["社員 (送信元)"]
+        User["社員A"]
+    end
+
+    subgraph Proxy ["AnonConnect (仲介者)"]
+        App["<b>Slack App</b><br/>(メッセージの架け橋)"]
+        DB[(スレッド紐付けテーブル<br/>ID / タイムスタンプ)]
+    end
+
+    subgraph ExecSide ["役員 (返信先)"]
+        Exec["役員B"]
+    end
+
+    %% メッセージの往復フロー
+    User -- "1.アプリに投稿" --> App
+    App -- "2.匿名で転送" --> Exec
+    
+    Exec -- "3.スレッドで返信" --> App
+    App -- "4.投稿者に返信" --> User
+
+    %% 匿名性の解説
+    note1["<b>【匿名性の本質】</b><br/>お互いの送信元は常に『アプリ』であるため、誰が投稿したか見えない"]
+    
+    App -.-> note1
+
+    %% スタイル定義
+    style Proxy fill:#e1f5fe,stroke:#01579b,stroke-width:2px
+    style note1 fill:#fff2cc,stroke:#d6b656,font-size:12px
+    style User fill:#ffffff
+    style Exec fill:#ffffff
+```
