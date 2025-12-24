@@ -355,47 +355,9 @@ The Amoeba（京セラのアメーバ経営をさせるERPパッケージ）, Ja
 今まで手入力しかできなかった旅費精算業務の入力負担を劇的に削減。従業員の生産性向上とヒューマンエラーの抑制に大きく貢献し、全社的な業務効率化、ひいては「全体最適」に寄与した。このプロジェクトは、単なるツールの導入に留まらず、社内ERPのSaaS連携という新たな技術的挑戦を通じて、今後のシステム拡張における規範を築いた。
 
 **「仕様なきバイナリ」から「ビジネス価値」を抽出するエンジニアリング**: 
-```mermaid
-flowchart LR
-    subgraph Input ["1. Raw Data"]
-        RawDB[("ERP RDB<br/>(ICカードバイナリ)")]
-    end
+<img width="1608" height="440" alt="image" src="https://github.com/user-attachments/assets/f6de6be1-4dce-4e7b-9eba-626bd5ffefff" />
 
-    subgraph Engine ["2. ETL Engine"]
-        direction TB
-        
-        subgraph Logic ["データ加工"]
-            direction LR
-            Decoder["<b>Binary Decoder</b><br/>サイバネコード解析"]
-            API["<b>SaaS Client</b><br/>ジョルダンAPI連携"]
-            Calc["<b>Fare Logic</b><br/>運賃計算"]
-            
-            Decoder --> API --> Calc
-        end
-        
-        Base["BaseTasklet (共通基盤)"]
-        Base -.-> Logic
-    end
 
-    subgraph Storage ["3. Processed Data"]
-        MasterDB[("ERP RDB<br/>(精算用レコード)")]
-    end
-
-    subgraph Consumer ["4. Business UI"]
-        UI["旅費精算システム<br/>(ユーザーが起票)"]
-    end
-
-    %% 全体の流れ
-    RawDB --> Logic
-    Logic --> MasterDB
-    MasterDB --> UI
-
-    %% スタイル定義
-    style Engine fill:#f5f5f5,stroke:#333
-    style Logic fill:#ffffff,stroke:#01579b,stroke-width:2px
-    style Decoder fill:#e1f5fe,stroke:#01579b
-    style UI fill:#fff2cc,stroke:#d6b656
-```
 本プロジェクトの核心は、ドキュメントの存在しないICカード内のバイナリデータ（サイバネコード）の解析と、現代的なSaaS APIを統合した点にあります。
 
 **リサーチと解析:** 公開情報の少ないICカードのデータ構造を独自に解析し、利用駅や履歴を抽出する「Binary Decoder」を自作。(ICカードリーダーを読み込ませ、RDBに生データを入れるパイプラインは別途構築）<br>
