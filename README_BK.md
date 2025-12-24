@@ -457,3 +457,145 @@ flowchart LR
     style User fill:#ffffff
     style Exec fill:#ffffff
 ```
+
+
+あああああああああああああああああああああああああああ
+
+```mermaid
+flowchart LR
+    subgraph UserSide ["社員 (送信元)"]
+        User["社員A"]
+        UserThread["社員側スレッド"]
+    end
+
+    subgraph Proxy ["AnonConnect (仲介者)"]
+        App["<b>Slack App</b><br/>(双方向プロキシ)"]
+        DB[(スレッド紐付け管理<br/>UserThreadID <-> ExecThreadID)]
+    end
+
+    subgraph ExecSide ["役員 (受信・返信先)"]
+        Exec["役員B"]
+        ExecThread["役員側スレッド"]
+    end
+
+    %% --- 1. 初回投稿 ---
+    User -- "1.アプリにDM/投稿" --> App
+    App -- "2.匿名化して新規投稿" --> ExecThread
+
+    %% --- 2. 役員からの返信 ---
+    Exec -- "3.スレッドで返信" --> ExecThread
+    ExecThread --> App
+    App -- "4.社員側スレッドに返信" --> UserThread
+
+    %% --- 3. 社員からの追加返信（ループの表現） ---
+    UserThread -- "5.スレッドに返信 (ここから継続)" --> User
+    User -- "再返信" --> UserThread
+    UserThread --> App
+    App -- "6.役員側スレッドへ転送" --> ExecThread
+
+    %% 継続的なやり取りの注釈
+    LoopNote["<b>【ループの仕組み】</b><br/>Appが両側のスレッドIDを記憶しているため、<br/>どちらかのスレッドへの返信は、<br/>常にもう一方のスレッドへ同期されます。"]
+    
+    App -.-> LoopNote
+    LoopNote -.-> UserThread
+    LoopNote -.-> ExecThread
+
+    %% 匿名性の解説
+    note1["<b>【匿名性の維持】</b><br/>社員側：相手は『アプリ』に見える<br/>役員側：相手は『アプリ』に見える"]
+    App -.-> note1
+
+    %% スタイル定義
+    style Proxy fill:#e1f5fe,stroke:#01579b,stroke-width:2px
+    style LoopNote fill:#e8f5e9,stroke:#2e7d32,font-size:11px
+    style note1 fill:#fff2cc,stroke:#d6b656,font-size:11px
+    style UserSide fill:#f5f5f5,stroke:#9e9e9e
+    style ExecSide fill:#f5f5f5,stroke:#9e9e9e
+```
+
+
+いいいいいいいいいいいいいいいいいいいい
+
+
+
+```mermaid
+flowchart LR
+    subgraph "社員 (匿名投稿者)"
+        User["スレッドで返信"]
+    end
+
+    subgraph "AnonConnect (Slack App)"
+        App{{"メッセージを<br/>双方向に中継"}}
+    end
+
+    subgraph "役員"
+        Exec["スレッドで返信"]
+    end
+
+    %% 双方向ループの表現
+    User -- "1. アプリに投稿" --> App
+    App -- "2. 投稿内容を転送" --> Exec
+    
+    Exec -- "3. 返信" --> App
+    App -- "4. 投稿者のスレッドへ" --> User
+
+    %% 継続性の強調
+    User -. "5.以後、スレッド内で<br/>やり取りを継続" .-> Exec
+
+    %% 匿名性の解説
+    note1["<b>【匿名性の本質】</b><br/>お互いの送信元は常に『アプリ』であるため、誰が投稿したか見えない"]
+    
+    App -.-> note1
+
+    %% スタイル設定（シンプルに）
+    style App fill:#e1f5fe,stroke:#01579b,stroke-width:2px
+    style User fill:#fff
+    style Exec fill:#fff
+```
+
+
+
+うううううううううううううううう
+
+
+
+```mermaid
+flowchart LR
+    subgraph Input ["1. Raw Data"]
+        RawDB[("ERP RDB<br/>(ICカードバイナリ)")]
+    end
+
+    subgraph Engine ["2. ETL Engine"]
+        direction TB
+        
+        subgraph Logic ["データ加工"]
+            direction LR
+            Decoder["<b>Binary Decoder</b><br/>サイバネコード解析"]
+            API["<b>SaaS Client</b><br/>ジョルダンAPI連携"]
+            Calc["<b>Fare Logic</b><br/>運賃計算"]
+            
+            Decoder --> API --> Calc
+        end
+        
+        Base["BaseTasklet (共通基盤)"]
+        Base -.-> Logic
+    end
+
+    subgraph Storage ["3. Processed Data"]
+        MasterDB[("ERP RDB<br/>(精算用レコード)")]
+    end
+
+    subgraph Consumer ["4. Business UI"]
+        UI["旅費精算システム<br/>(ユーザーが起票)"]
+    end
+
+    %% 全体の流れ
+    RawDB --> Logic
+    Logic --> MasterDB
+    MasterDB --> UI
+
+    %% スタイル定義
+    style Engine fill:#f5f5f5,stroke:#333
+    style Logic fill:#ffffff,stroke:#01579b,stroke-width:2px
+    style Decoder fill:#e1f5fe,stroke:#01579b
+    style UI fill:#fff2cc,stroke:#d6b656
+```
