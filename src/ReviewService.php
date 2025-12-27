@@ -20,6 +20,7 @@ class ReviewService
 
               // 中略
               // 口コミレコードのUPDATE/DELETE等
+             $latestRecord = DB::table('reviews')->find($reviewId);
 　　　
 　　　        // バッチ実行中の時だけ差分管理テーブルに更新
 　　　        $isBatchRunning = Cache::get('process_flag') == 1;
@@ -61,3 +62,4 @@ class ReviewService
         Cache::forever($cacheKey, json_encode(array_values($dataMap)));
     }
 }
+
