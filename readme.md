@@ -16,7 +16,7 @@
 - 実績: 3年間停滞していた基盤刷新案件を、技術と交渉で3ヶ月で稟議完遂まで導く。
 - 手段: 法務・情シス・役員の漠然とした不安を技術的代替案で解消。停滞したプロジェクトを動かす実務と交渉を並走。
 
-**技術スタック:** GCP (Cloud Run等), Python, PHP(Laravel), Java, Vue.js(Nuxt.js), C#  等
+**技術スタック:** GCP (Cloud Run等), Python, PHP(Laravel), Java, Vue.js(Nuxt.js), React(Next.js), C#  等
 
 ---
 
